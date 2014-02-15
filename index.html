@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Oculus Menu</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <link href='style.css' rel='stylesheet' type='text/css'>
+    <style>
+      
+      #info{
+        padding:10px;
+        color:#fff;
+        position:absolute;
+        background-color:rgba(0,0,0,0.4);
+      }
+
+      #help-text H1 {
+        font-size:18px;
+        margin-top:15px;
+
+      }
+      
+      #help-text DIV{
+        margin-bottom:5px;
+      }
+
+      #help-text DIV LABEL{
+        display:inline-block;
+        width:160px;
+      }
+
+      #help-text SECTION {
+        margin-top:20px;
+      }
+
+      #generic_error,
+      #security_error{
+        padding-top:200px;
+        width:500px;
+        margin-left:auto;
+        margin-right:auto;
+        display:none;
+      }
+
+    </style>
+  </head>
+
+  <body>
+    <a id="logo" class="offline" href="https://github.com/Instrument/oculus-bridge"></a>
+
+    <div id="viewport"></div>
+    <div id="security_error">
+      <p>This file must be served via HTTP to support the use of textures.</p>
+      <p>Please host this content via a web server of some kind and try again.</p>
+    </div>
+    <div id="generic_error">
+      <p>Oh dang, something went wrong while trying to render the scene.</p>
+      <p>Exception: <span id="exception_message"></span></p>
+    </div>
+    
+    <script src="lib/OculusBridge.js"></script>
+    
+    <script src="lib/three.min.js"></script>
+    <script src="lib/RiftCamera.js"></script>
+
+    <script src="menu.js"></script>
+  </body>
+</html>
