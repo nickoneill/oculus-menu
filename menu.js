@@ -15,8 +15,8 @@ var core = [];
 var menuTree = {};
 var activeMenu = [];
 var dataPackets = [];
-var posAccels = [];
-var negAccels = [];
+var horizAccels = [];
+var vertAccels = [];
 var accelX = 0;
 var allAccels = [];
 
@@ -31,9 +31,9 @@ var upMaterial = new THREE.MeshLambertMaterial({ emissive:0xffff00, color: 0xfff
 var upwardAngleTweak = 0.1;
 
 // how hard you have to tap
-var tapAccelMultiplier = 16;
+var tapAccelMultiplier = 5;
 var tapDisableTicks = 0;
-var tapDisableLength = 6;
+var tapDisableLength = 10;
 
 var pointerCircle;
 var fauxMenuArea;
@@ -132,7 +132,6 @@ function initGeometry(){
 }
 
 function selectMenuItem(index){
-  console.log("selected "+index);
   var leftVector = new THREE.Vector3(-10, 0, 0);
 
   // old menus get pushed and destroyed
@@ -147,12 +146,10 @@ function selectMenuItem(index){
   var selectedMenu;;
   if (activeMenu.submenus.length) {
     // menu exists, reuse
-    console.log("reusing menu");
     selectedMenu = activeMenu.submenus[index];
 
   } else {
     // make all submenus and store them
-    console.log("making new menus");
 
     for (var i = 0; i < activeMenu.meshes.length; i++) {
 
@@ -187,7 +184,7 @@ function selectMenuItem(index){
 function menuMoveUp(){
   var rightVector = new THREE.Vector3(14, 0, 0);
 
-  var parent = checkChildrenFor(menuTree, activeMenu);
+  var parent = findParentFor(menuTree, activeMenu);
   console.log("parent "+parent);
 
   if (parent) {
@@ -213,14 +210,22 @@ function menuMoveUp(){
   }
 }
 
-function checkChildrenFor(parent, menumatch){
+function findParentFor(parent, menumatch){
   for (var i = 0; i < parent.submenus.length; i++) {
     if (parent.submenus[i] == menumatch) {
       return parent;
-    } else {
-      return checkChildrenFor(parent.submenus[i], menumatch);
     }
   }
+
+  var foundParent;
+  for (var i = 0; i < parent.submenus.length; i++) {
+    foundParent = findParentFor(parent.submenus[i], menumatch);
+
+    if (foundParent) {
+      return foundParent;
+    }
+  }
+
 }
 
 // ############
@@ -266,13 +271,12 @@ function bridgeOrientationUpdated(quatValues) {
   var raycast = new THREE.Raycaster( camera.position, xzVector );
   var intersect = raycast.intersectObjects( activeMenu.meshes );
 
+  for (var i = 0; i < activeMenu.meshes.length; i++) {
+    activeMenu.meshes[i].material = defaultMaterial;
+  }
+
   if (intersect.length) {
     // console.log("intersect: "+intersect[0].object.position.y);
-
-    for (var i = 0; i < activeMenu.meshes.length; i++) {
-      activeMenu.meshes[i].material = defaultMaterial;
-    }
-
     intersect[0].object.material = selectedMaterial;
   };
 
@@ -292,48 +296,39 @@ function bridgeAccelerationUpdated(accelValues) {
     tapDisableTicks--;
   }
 
-  allAccels.push(accelValues.x);
+  // for debugging
+  // allAccels.push("{x:"+Date.now()+",y:"+accelValues.x+"}");
 
   // apparently a highpass filter could improve this over simple moving averages
-  var totalAccel = 0;
-  for (var i = 0; i < negAccels.length; i++) {
-    totalAccel += negAccels[i];
+  var horizTotal = 0;
+  for (var i = 0; i < horizAccels.length; i++) {
+    horizTotal += horizAccels[i];
   };
-  var avgNegAccel = totalAccel / negAccels.length;
-  var selectItem = accelValues.x <= avgNegAccel*tapAccelMultiplier;
+  var avgHoriz = horizTotal / horizAccels.length;
+  var selectItem = Math.abs(accelValues.x) >= avgHoriz*tapAccelMultiplier;
 
-  totalAccel = 0;
-  for (var i = 0; i < posAccels.length; i++) {
-    totalAccel += posAccels[i];
+  var vertTotal = 0;
+  for (var i = 0; i < vertAccels.length; i++) {
+    vertTotal += vertAccels[i];
   };
-  var avgPosAccel = totalAccel / posAccels.length;
-  var goUp = accelValues.x >= avgPosAccel*tapAccelMultiplier;
+  var avgVert = vertTotal / vertAccels.length;
+  // console.log("vert "+Math.abs(accelValues.y-9.8)+" "+avgVert*7);
+  var goUp = Math.abs(accelValues.y-9.8) >= avgVert*7;
 
   var menuUp, selected = false;
-  // console.log("x "+accelValues.x);
-  // console.log("pos "+avgPosAccel*tapAccelMultiplier);
-  // console.log("neg "+avgNegAccel*tapAccelMultiplier);
   if (goUp && tapDisableTicks === 0) {
     tapDisableTicks = tapDisableLength;
     console.log("menu up");
     menuUp = true;
-  
-    // console.log("x "+accelValues.x);
-    // console.log("pos "+avgPosAccel*tapAccelMultiplier);
-    // console.log("all "+posAccels);
   }
 
   if (selectItem && tapDisableTicks === 0) {
     tapDisableTicks = tapDisableLength;
     console.log("selected item");
     selected = true;
-
-    // console.log("x "+accelValues.x);
-    // console.log("neg "+avgNegAccel*tapAccelMultiplier);
-    // console.log("all "+negAccels);
   }
 
-  if (menuUp || selected) {
+  if (selected) {
     // // get current look vector
     var xzVector = new THREE.Vector3(0, upwardAngleTweak, -1);
     xzVector.applyQuaternion(camera.quaternion);
@@ -342,37 +337,29 @@ function bridgeAccelerationUpdated(accelValues) {
     var intersect = raycast.intersectObjects( activeMenu.meshes );
 
     if (intersect.length) {
-      if (menuUp) {
-        menuMoveUp();
+      if (intersect[0].object.position.y > 20) {
+        selectMenuItem(0);
+      } else if (intersect[0].object.position.y < 0) {
+        selectMenuItem(2);
       } else {
-        if (intersect[0].object.position.y > 20) {
-          selectMenuItem(0);
-        } else if (intersect[0].object.position.y < 0) {
-          selectMenuItem(2);
-        } else {
-          selectMenuItem(1);
-        }
+        selectMenuItem(1);
       }
     }
 
+  } else if (menuUp) {
+    menuMoveUp();
   }
 
   // move queues along
-  if (posAccels.length > 10) {
-    posAccels.shift();
+  if (horizAccels.length > 10) {
+    horizAccels.shift();
+  }
+  if (vertAccels.length > 10) {
+    vertAccels.shift();
   }
 
-  if (negAccels.length > 10) {
-    negAccels.shift();
-  }
-
-  if (accelValues.x > 0) {
-    posAccels.push(accelValues.x);
-  } else {
-    negAccels.push(accelValues.x);
-  }
-  
-  // console.log("accel: "+accelValues.x+" "+accelValues.y+" "+accelValues.z);
+  horizAccels.push(Math.abs(accelValues.x));
+  vertAccels.push(Math.abs(accelValues.y-9.8));
 }
 
 // #############
