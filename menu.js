@@ -24,8 +24,15 @@ var ground, groundGeometry, groundMaterial;
 var defaultMaterial = new THREE.MeshLambertMaterial({ emissive:0x1b7ccc, color: 0x1b7ccc });
 var selectedMaterial = new THREE.MeshLambertMaterial({ emissive:0x40ed54, color: 0x40ed54 });
 
-var downMaterial = new THREE.MeshLambertMaterial({ emissive:0xff0000, color: 0xff0000 });
-var upMaterial = new THREE.MeshLambertMaterial({ emissive:0xffff00, color: 0xffff00 });
+var randomMaterials = [
+  new THREE.MeshLambertMaterial({ emissive:0xff0000, color: 0xff0000 }),
+  new THREE.MeshLambertMaterial({ emissive:0xffff00, color: 0xffff00 }),
+  new THREE.MeshLambertMaterial({ emissive:0xffffff, color: 0xffffff }),
+  new THREE.MeshLambertMaterial({ emissive:0x0000ff, color: 0x0000ff }),
+  new THREE.MeshLambertMaterial({ emissive:0x00ffff, color: 0x00ffff }),
+  new THREE.MeshLambertMaterial({ emissive:0x0f0f0f, color: 0x0f0f0f }),
+  new THREE.MeshLambertMaterial({ emissive:0xf0f0f0, color: 0xf0f0f0 })
+];
 
 // perfectly level seems low on the rift - maybe because init?
 var upwardAngleTweak = 0.1;
@@ -127,7 +134,7 @@ function initGeometry(){
     scene.add(pri);
   };
 
-  menuTree = {meshes: meshObjects, submenus: []};
+  menuTree = {meshes: meshObjects, submenus: [], material: defaultMaterial};
   activeMenu = menuTree;
 }
 
@@ -160,7 +167,7 @@ function selectMenuItem(index){
         meshObjects.push(pri);
       };
 
-      var newMenu = {meshes: meshObjects, submenus: []};
+      var newMenu = {meshes: meshObjects, submenus: [], material: randomMaterials[Math.floor(Math.random()*randomMaterials.length)]};
 
       activeMenu.submenus.push(newMenu);
     }
@@ -272,7 +279,7 @@ function bridgeOrientationUpdated(quatValues) {
   var intersect = raycast.intersectObjects( activeMenu.meshes );
 
   for (var i = 0; i < activeMenu.meshes.length; i++) {
-    activeMenu.meshes[i].material = defaultMaterial;
+    activeMenu.meshes[i].material = activeMenu.material;
   }
 
   if (intersect.length) {
