@@ -15,9 +15,15 @@ var core = [];
 var menuTree = {};
 var activeMenu = [];
 var dataPackets = [];
-var horizAccels = [];
-var vertAccels = [];
-var accelX = 0;
+
+// calculation of taps
+var starti = 3;
+var savedmax = 0;
+var dadtmultiple = 4;
+var minselectmag = 4;
+var yAccels = [];
+
+// for debug
 var allAccels = [];
 
 var ground, groundGeometry, groundMaterial;
@@ -34,6 +40,9 @@ var randomMaterials = [
   new THREE.MeshLambertMaterial({ emissive:0xf0f0f0, color: 0xf0f0f0 })
 ];
 
+var backMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
+var backSelectedMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+
 // perfectly level seems low on the rift - maybe because init?
 var upwardAngleTweak = 0.1;
 
@@ -44,6 +53,7 @@ var tapDisableLength = 10;
 
 var pointerCircle;
 var fauxMenuArea;
+var backMeshes = [];
 
 var bodyAngle;
 var bodyAxis;
@@ -107,12 +117,30 @@ function initLights(){
 
 function initGeometry(){
 
-  var floorMaterial = new THREE.MeshBasicMaterial( { color:0x515151, wireframe:true, transparent:true, opacity:0.5 } );
-  var floorGeometry = new THREE.PlaneGeometry(200, 200, 10, 10);
-  var floor = new THREE.Mesh(floorGeometry, floorMaterial);
-  floor.rotation.x = -Math.PI / 2;
+  // var floorMaterial = new THREE.MeshBasicMaterial( { color:0x515151, wireframe:true, transparent:true, opacity:0.5 } );
+  // var floorGeometry = new THREE.PlaneGeometry(200, 200, 10, 10);
+  // var floor = new THREE.Mesh(floorGeometry, floorMaterial);
+  // floor.rotation.x = -Math.PI / 2;
+  // scene.add(floor);
 
-  scene.add(floor);
+  var backGeometry = new THREE.Geometry();
+  backGeometry.vertices.push(new THREE.Vector3(0, 10, 0));
+  backGeometry.vertices.push(new THREE.Vector3(-10, 0, 0));
+  backGeometry.vertices.push(new THREE.Vector3(0, -10, 0));
+  backGeometry.faces.push(new THREE.Face3(0, 1, 2));
+
+  var backButton = new THREE.Mesh(backGeometry, backMaterial);
+  backButton.position.set(-2.5, 45, -100);
+  backButton.visible = false;
+  scene.add(backButton);
+  backMeshes.push(backButton);
+
+  var backBox = new THREE.PlaneGeometry(10, 10);
+  var backBoxMesh = new THREE.Mesh(backBox, backMaterial);
+  backBoxMesh.position.set(2.5, 45, -100);
+  backBoxMesh.visible = false;
+  scene.add(backBoxMesh);
+  backMeshes.push(backBoxMesh);
 
   // pointer
   var pointerMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8 });
@@ -139,6 +167,11 @@ function initGeometry(){
 }
 
 function selectMenuItem(index){
+  // show the back button
+  for (var i = 0; i < backMeshes.length; i++) {
+    backMeshes[i].visible = true;
+  }
+
   var leftVector = new THREE.Vector3(-10, 0, 0);
 
   // old menus get pushed and destroyed
@@ -157,9 +190,7 @@ function selectMenuItem(index){
 
   } else {
     // make all submenus and store them
-
     for (var i = 0; i < activeMenu.meshes.length; i++) {
-
       var meshObjects = [];
       for (var j = 0; j < Math.ceil(Math.random() * 3); j++) {
         var pri = new THREE.Mesh( new THREE.PlaneGeometry(100, 15), defaultMaterial );
@@ -192,7 +223,6 @@ function menuMoveUp(){
   var rightVector = new THREE.Vector3(14, 0, 0);
 
   var parent = findParentFor(menuTree, activeMenu);
-  console.log("parent "+parent);
 
   if (parent) {
     for (var i = 0; i < activeMenu.meshes.length; i++){
@@ -214,6 +244,13 @@ function menuMoveUp(){
     }
 
     activeMenu = parent;
+  }
+
+  if (parent == menuTree) {
+    // hide the back button
+    for (var i = 0; i < backMeshes.length; i++) {
+      backMeshes[i].visible = false;
+    }
   }
 }
 
@@ -287,6 +324,19 @@ function bridgeOrientationUpdated(quatValues) {
     intersect[0].object.material = selectedMaterial;
   };
 
+  // determine if we intersect the back button
+  var backintersect = raycast.intersectObjects( backMeshes );
+
+  var setMaterial = backMaterial;
+  if (backintersect.length) {
+    setMaterial = backSelectedMaterial;
+  }
+
+  for (var i = 0; i < backMeshes.length; i++) {
+    // console.log(backMeshes[i]);
+    backMeshes[i].material = setMaterial;
+  }
+
   // control the pointer
   var intersect = raycast.intersectObject( fauxMenuArea );
   if (intersect.length) {
@@ -299,40 +349,70 @@ function bridgeOrientationUpdated(quatValues) {
 }
 
 function bridgeAccelerationUpdated(accelValues) {
-  if (tapDisableTicks > 0) {
-    tapDisableTicks--;
-  }
-
   // for debugging
   // allAccels.push("{x:"+Date.now()+",y:"+accelValues.x+"}");
 
-  // apparently a highpass filter could improve this over simple moving averages
-  var horizTotal = 0;
-  for (var i = 0; i < horizAccels.length; i++) {
-    horizTotal += horizAccels[i];
-  };
-  var avgHoriz = horizTotal / horizAccels.length;
-  var selectItem = Math.abs(accelValues.x) >= avgHoriz*tapAccelMultiplier;
-
-  var vertTotal = 0;
-  for (var i = 0; i < vertAccels.length; i++) {
-    vertTotal += vertAccels[i];
-  };
-  var avgVert = vertTotal / vertAccels.length;
-  // console.log("vert "+Math.abs(accelValues.y-9.8)+" "+avgVert*7);
-  var goUp = Math.abs(accelValues.y-9.8) >= avgVert*7;
-
   var menuUp, selected = false;
-  if (goUp && tapDisableTicks === 0) {
-    tapDisableTicks = tapDisableLength;
-    console.log("menu up");
-    menuUp = true;
+  var dadt = [];
+  var y1 = 0;
+  // wait until our data buffer is filled
+  if (yAccels.length > 5) {
+    for (var i = 0; i < yAccels.length; i++) {
+      if (i > 1) {
+        y1 = yAccels[i] - yAccels[i-1];
+
+        dadt.push(y1);
+      }
+    }
   }
 
-  if (selectItem && tapDisableTicks === 0) {
-    tapDisableTicks = tapDisableLength;
-    console.log("selected item");
-    selected = true;
+  if (starti === 3) {
+    var dadtvalues = [];
+  
+    for (var i = 0; i < dadt.length; i++) {
+      dadtvalues.push(Math.abs(dadt[i]));
+      if (dadtvalues.length > 6) {
+        dadtvalues.shift();
+      }
+
+      var tot = 0;
+      for (var j = 0; j < dadtvalues.length; j++) {
+        tot += dadtvalues[j];
+      }
+      var avg = tot / dadtvalues.length;
+
+      // look back x time points for absolute max
+      // set watcher data for the next x time points
+      if (Math.abs(dadt[i]) > avg*dadtmultiple && Math.abs(dadt[i]) > minselectmag) {
+        // console.log("looks like we should start");
+        starti--;
+
+        for (var j = 0; j < 3; j++) {
+          if (Math.abs(dadt[i-j]) > Math.abs(savedmax)) {
+            savedmax = dadt[i-j];
+          }
+        }
+        // console.log("max at first check is "+savedmax);
+      }
+    }
+  } else {
+    // check the next three time points
+    // console.log("checking next");
+      if (Math.abs(y1) > Math.abs(savedmax)) {
+        savedmax = y1;
+      }
+    // console.log("max at next check is "+savedmax);
+
+    starti--;
+
+    // push the max, reset
+    if (starti < 0) {
+      console.log("selected with "+savedmax);
+      selected = true;
+      
+      savedmax = 0;
+      starti = 3;
+    }
   }
 
   if (selected) {
@@ -351,22 +431,21 @@ function bridgeAccelerationUpdated(accelValues) {
       } else {
         selectMenuItem(1);
       }
-    }
+    } else {
+      var backintersect = raycast.intersectObjects( backMeshes );
 
-  } else if (menuUp) {
-    menuMoveUp();
+      if (backintersect.length) {
+        menuMoveUp();
+      }      
+    }
   }
 
   // move queues along
-  if (horizAccels.length > 10) {
-    horizAccels.shift();
-  }
-  if (vertAccels.length > 10) {
-    vertAccels.shift();
+  if (yAccels.length > 7) {
+    yAccels.shift();
   }
 
-  horizAccels.push(Math.abs(accelValues.x));
-  vertAccels.push(Math.abs(accelValues.y-9.8));
+  yAccels.push(accelValues.y);
 }
 
 // #############
@@ -384,20 +463,15 @@ function onMouseDown(event) {
 
 function onKeyDown(event) {
 
-  if(event.keyCode == 48){ // zero key.
+  if(event.keyCode == 48){ // 0 key, switch view
     useRift = !useRift;
     onResize();
   }
 
-  if(event.keyCode == 83){ // s key.
+  if(event.keyCode == 83){ // s key, stop updating
     stopRender = true;
     oculusBridge.disconnect();
   }
-
-  // // prevent repeat keystrokes.
-  // if(!keys[32] && (event.keyCode == 32)){ // Spacebar to jump
-  //   velocity.y += 1.9;
-  // }
 
   keys[event.keyCode] = true;
 }
@@ -409,9 +483,7 @@ function onKeyUp(event) {
 
 
 function updateInput(delta) {
-  
-  var step        = 25 * delta;
-
+  var step = 25 * delta;
 }
 
 // ###############
@@ -466,19 +538,7 @@ function animate() {
         break;
       }
     }
-
-    // if(dataPackets[i].obj.position.x < -bounds) {
-    //   dataPackets[i].obj.position.x = bounds;
-    // } else if(dataPackets[i].obj.position.x > bounds){
-    //   dataPackets[i].obj.position.x = -bounds;
-    // }
-    // if(dataPackets[i].obj.position.z < -bounds) {
-    //   dataPackets[i].obj.position.z = bounds;
-    // } else if(dataPackets[i].obj.position.z > bounds){
-    //   dataPackets[i].obj.position.z = -bounds;
-    // }
   }
-
   
   if(render() && !stopRender){
     requestAnimationFrame(animate);  
@@ -519,7 +579,6 @@ function crashOther(e){
 }
 
 function init(){
-
   document.addEventListener('keydown', onKeyDown, false);
   document.addEventListener('keyup', onKeyUp, false);
   document.addEventListener('mousedown', onMouseDown, false);
