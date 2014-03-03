@@ -103,9 +103,7 @@ function initScene() {
   element.appendChild(renderer.domElement);
 }
 
-
 function initLights(){
-
   ambient = new THREE.AmbientLight(0x222222);
   scene.add(ambient);
 
@@ -116,13 +114,13 @@ function initLights(){
 }
 
 function initGeometry(){
-
   // var floorMaterial = new THREE.MeshBasicMaterial( { color:0x515151, wireframe:true, transparent:true, opacity:0.5 } );
   // var floorGeometry = new THREE.PlaneGeometry(200, 200, 10, 10);
   // var floor = new THREE.Mesh(floorGeometry, floorMaterial);
   // floor.rotation.x = -Math.PI / 2;
   // scene.add(floor);
 
+  // the pointy part of the arrow
   var backGeometry = new THREE.Geometry();
   backGeometry.vertices.push(new THREE.Vector3(0, 10, 0));
   backGeometry.vertices.push(new THREE.Vector3(-10, 0, 0));
@@ -135,6 +133,7 @@ function initGeometry(){
   scene.add(backButton);
   backMeshes.push(backButton);
 
+  // the boxy part of the arrow
   var backBox = new THREE.PlaneGeometry(10, 10);
   var backBoxMesh = new THREE.Mesh(backBox, backMaterial);
   backBoxMesh.position.set(2.5, 45, -100);
@@ -144,10 +143,11 @@ function initGeometry(){
 
   // pointer
   var pointerMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8 });
-  pointerCircle = new THREE.Mesh( new THREE.CircleGeometry(1), pointerMaterial );
+  pointerCircle = new THREE.Mesh( new THREE.CircleGeometry(1, 12), pointerMaterial );
   pointerCircle.position.set(0, 0, -100);
   scene.add(pointerCircle);
 
+  // a transparent plane that we project the pointer onto
   var menuMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.0 });
   fauxMenuArea = new THREE.Mesh( new THREE.PlaneGeometry(120, 120), menuMaterial );
   fauxMenuArea.position.set(0, 0, -100);
@@ -162,6 +162,7 @@ function initGeometry(){
     scene.add(pri);
   };
 
+  // menuTree is made randomly under the top level
   menuTree = {meshes: meshObjects, submenus: [], material: defaultMaterial};
   activeMenu = menuTree;
 }
@@ -172,6 +173,7 @@ function selectMenuItem(index){
     backMeshes[i].visible = true;
   }
 
+  // movement vector for moving "down" a menu
   var leftVector = new THREE.Vector3(-10, 0, 0);
 
   // old menus get pushed and destroyed
@@ -206,6 +208,7 @@ function selectMenuItem(index){
     selectedMenu = activeMenu.submenus[index];
   }
   
+  // move the new menus
   for (var i = 0; i < selectedMenu.meshes.length; i++){
     scene.add(selectedMenu.meshes[i]);
 
@@ -220,8 +223,10 @@ function selectMenuItem(index){
 }
 
 function menuMoveUp(){
+  // movement vector for moving "up" a menu
   var rightVector = new THREE.Vector3(14, 0, 0);
 
+  // find a reference to the parent so we can display already created menus
   var parent = findParentFor(menuTree, activeMenu);
 
   if (parent) {
@@ -254,6 +259,7 @@ function menuMoveUp(){
   }
 }
 
+// trace all the menutree until we find the parent
 function findParentFor(parent, menumatch){
   for (var i = 0; i < parent.submenus.length; i++) {
     if (parent.submenus[i] == menumatch) {
@@ -319,6 +325,7 @@ function bridgeOrientationUpdated(quatValues) {
     activeMenu.meshes[i].material = activeMenu.material;
   }
 
+  // menu hover is highlighted
   if (intersect.length) {
     // console.log("intersect: "+intersect[0].object.position.y);
     intersect[0].object.material = selectedMaterial;
@@ -327,6 +334,7 @@ function bridgeOrientationUpdated(quatValues) {
   // determine if we intersect the back button
   var backintersect = raycast.intersectObjects( backMeshes );
 
+  // highlight for back button
   var setMaterial = backMaterial;
   if (backintersect.length) {
     setMaterial = backSelectedMaterial;
@@ -337,7 +345,7 @@ function bridgeOrientationUpdated(quatValues) {
     backMeshes[i].material = setMaterial;
   }
 
-  // control the pointer
+  // if the cast directly ahead intersects the menu area, draw a pointer
   var intersect = raycast.intersectObject( fauxMenuArea );
   if (intersect.length) {
 
@@ -352,6 +360,7 @@ function bridgeAccelerationUpdated(accelValues) {
   // for debugging
   // allAccels.push("{x:"+Date.now()+",y:"+accelValues.x+"}");
 
+  // keep track of recent change in acceleration
   var menuUp, selected = false;
   var dadt = [];
   var y1 = 0;
@@ -366,9 +375,12 @@ function bridgeAccelerationUpdated(accelValues) {
     }
   }
 
+  // starti at 3 means we aren't already checking for a tap
+  // this value counts down as we look ahead for a few ticks
   if (starti === 3) {
     var dadtvalues = [];
   
+    // get the recent 6 changes in acceleration
     for (var i = 0; i < dadt.length; i++) {
       dadtvalues.push(Math.abs(dadt[i]));
       if (dadtvalues.length > 6) {
@@ -397,7 +409,6 @@ function bridgeAccelerationUpdated(accelValues) {
     }
   } else {
     // check the next three time points
-    // console.log("checking next");
       if (Math.abs(y1) > Math.abs(savedmax)) {
         savedmax = y1;
       }
@@ -405,7 +416,7 @@ function bridgeAccelerationUpdated(accelValues) {
 
     starti--;
 
-    // push the max, reset
+    // if this is the last foreward check, select and reset
     if (starti < 0) {
       console.log("selected with "+savedmax);
       selected = true;
@@ -423,6 +434,7 @@ function bridgeAccelerationUpdated(accelValues) {
     var raycast = new THREE.Raycaster(camera.position, xzVector);
     var intersect = raycast.intersectObjects( activeMenu.meshes );
 
+    // if we intersected a menu, select that one
     if (intersect.length) {
       if (intersect[0].object.position.y > 20) {
         selectMenuItem(0);
@@ -432,6 +444,7 @@ function bridgeAccelerationUpdated(accelValues) {
         selectMenuItem(1);
       }
     } else {
+      // select back if that was intersecting
       var backintersect = raycast.intersectObjects( backMeshes );
 
       if (backintersect.length) {
