@@ -5,7 +5,7 @@ Use your oculus rift without a controller or keyboard. Tap the headset to naviga
 Screenshot of EXCITING tech demo boxes:
 
 And the demo video:
-<iframe width="640" height="360" src="//www.youtube.com/embed/HU7HOWj04Bw?rel=0" frameborder="0" allowfullscreen></iframe>
+http://youtu.be/HU7HOWj04Bw
 
 ## requirements
 
@@ -39,6 +39,6 @@ Also, the data coming from the SensorFusion object in the bridge is limited to 6
 
 ## extras
 
-There’s some code for testing and charting different algorithms for detecting taps. It’s in (chart.html)[(http://nickoneill.github.io/oculus-menu/chart.html)]. You can capture and print accelerometer data from the rift by looking at where `allAccels` is commented out in the code.
+There’s some code for testing and charting different algorithms for detecting taps. It’s in [chart.html](http://nickoneill.github.io/oculus-menu/chart.html). You can capture and print accelerometer data from the rift by looking at where `allAccels` is commented out in the code.
 
 I almost made a feature where data was sent between windows using intercom.js and live-charted. If you wanted to improve the tap detection and needed a better live view of accelerometer data, this might be a good place to start.
