@@ -3,6 +3,7 @@
 Use your oculus rift without a controller or keyboard. Tap the headset to navigate up and down a menu system with this tech demo.
 
 Screenshot of EXCITING tech demo boxes:
+![](https://raw.github.com/nickoneill/oculus-menu/master/img/screenshot.png)
 
 And the demo video:
 http://youtu.be/HU7HOWj04Bw
