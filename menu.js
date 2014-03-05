@@ -20,7 +20,7 @@ var dataPackets = [];
 var starti = 3;
 var savedmax = 0;
 var dadtmultiple = 4;
-var minselectmag = 4;
+var minselectmag = 1;
 var yAccels = [];
 
 // for debug
